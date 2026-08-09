@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="fr"moznomarginboxes mozdisallowselectionprint>
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Fiche d'intervention — Régie de chaleur</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --navy:#1F3864;
@@ -186,7 +188,6 @@
   .stat .lab{font-size:11px; color:var(--text-soft); text-transform:uppercase; font-weight:700;}
 
   @media print{
-    @page{ margin: 0.6cm; }
     header.top, nav.tabs, .no-print{display:none !important;}
     body{background:#fff;}
     .card{border:1px solid #999; break-inside:avoid;}
@@ -215,7 +216,7 @@
 
     <div class="info-box no-print" style="background:var(--amber-light); border:1px solid var(--amber); border-radius:10px; padding:14px 16px; margin-bottom:14px; font-size:13px; color:var(--amber-dark);">
       <strong style="display:block; margin-bottom:6px;">Après avoir rempli et signé la fiche :</strong>
-      appuyez sur <em>« Imprimer / PDF client »</em>, choisissez <em>« Enregistrer en PDF »</em>, puis envoyez ce PDF par e-mail.
+      appuyez sur <em>« Télécharger le PDF »</em> — le PDF se télécharge directement, sans passer par le menu d'impression. Envoyez-le ensuite par e-mail à votre adresse professionnelle.
     </div>
 
     <!-- ===================== FORMULAIRE ===================== -->
@@ -303,7 +304,7 @@
       </div>
 
       <div class="btn-row no-print">
-        <button class="btn btn-amber" onclick="printFiche()">Imprimer / PDF client</button>
+        <button class="btn btn-amber" onclick="printFiche()">Télécharger le PDF</button>
       </div>
       <div style="height:10px;"></div>
       <button class="btn no-print" onclick="resetForm(true)">Nouvelle fiche vierge</button>
@@ -543,7 +544,47 @@ function printFiche(){
     dst.width = sigCanvases['sigClient'].width; dst.height = sigCanvases['sigClient'].height;
     dst.getContext('2d').drawImage(sigCanvases['sigClient'], 0, 0);
   }
-  window.print();
+  generatePdf(d);
+}
+
+// ---------- génération du PDF nous-mêmes (pas d'en-tête/pied de page du navigateur) ----------
+async function generatePdf(d){
+  const btn = document.querySelector('.btn-amber');
+  const originalLabel = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = 'Génération du PDF...'; btn.disabled = true; }
+
+  const target = el('printArea');
+  const prevCss = target.getAttribute('style') || '';
+  // rendre la zone imprimable temporairement visible hors écran pour la capturer
+  target.style.cssText = prevCss + ';display:block;position:fixed;top:0;left:-10000px;width:750px;background:#fff;padding:16px;z-index:-1;';
+
+  try{
+    const canvas = await html2canvas(target, {scale:2, backgroundColor:'#ffffff', useCORS:true});
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const pageWidth = 210, pageHeight = 297;
+    const imgWidth = pageWidth;
+    const imgHeight = canvas.height * imgWidth / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData,'JPEG',0,position,imgWidth,imgHeight);
+    heightLeft -= pageHeight;
+    while(heightLeft > 0){
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData,'JPEG',0,position,imgWidth,imgHeight);
+      heightLeft -= pageHeight;
+    }
+    const dateStr = (d.date || new Date().toISOString().slice(0,10));
+    pdf.save('fiche-intervention-' + dateStr + '.pdf');
+    toast('PDF généré et téléchargé.');
+  }catch(e){
+    toast('Erreur lors de la génération du PDF.');
+  }finally{
+    target.setAttribute('style', prevCss);
+    if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
+  }
 }
 
 // ---------- init ----------
