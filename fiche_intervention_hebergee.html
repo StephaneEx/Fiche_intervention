@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr"moznomarginboxes mozdisallowselectionprint>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
@@ -186,6 +186,7 @@
   .stat .lab{font-size:11px; color:var(--text-soft); text-transform:uppercase; font-weight:700;}
 
   @media print{
+    @page{ margin: 0.6cm; }
     header.top, nav.tabs, .no-print{display:none !important;}
     body{background:#fff;}
     .card{border:1px solid #999; break-inside:avoid;}
